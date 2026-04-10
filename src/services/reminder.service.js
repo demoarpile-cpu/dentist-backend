@@ -31,8 +31,9 @@ const createReminder = async (reminderData) => {
       userId: parseInt(userId),
       targetUserId: targetUserId ? parseInt(targetUserId) : null,
       title: reminderData.title || type || 'Reminder',
+      body: reminderData.body || null,
       description: description || '',
-      severity: reminderData.severity || (type && (type.includes('Expiry') || type.includes('Renewal')) ? 'warning' : 'info'),
+      severity: reminderData.severity || type || 'info',
       dueAt: dueAt,
       notifyAt: parseDate(notifyDate || reminderData.notifyAt),
       branch: branch || 'All Branches',
@@ -194,7 +195,7 @@ const getActiveNotifications = async (userId, userRole) => {
 };
 
 const updateReminder = async (id, reminderData) => {
-  const { dueDate, notifyDate, type, description, branch, method, isRead, employeeId } = reminderData;
+  const { dueDate, notifyDate, type, description, branch, method, isRead, employeeId, body } = reminderData;
   const updateData = {};
 
   const parseDate = (dateStr) => {
@@ -203,13 +204,12 @@ const updateReminder = async (id, reminderData) => {
     return isNaN(date.getTime()) ? null : date;
   };
 
-  if (reminderData.title) {
-    updateData.title = reminderData.title;
-    updateData.severity = reminderData.severity || (reminderData.title.includes('Expiry') || reminderData.title.includes('Renewal') ? 'warning' : 'info');
-  } else if (type) {
-    updateData.title = type;
-    updateData.severity = type.includes('Expiry') || type.includes('Renewal') ? 'warning' : 'info';
-  }
+  if (reminderData.title) updateData.title = reminderData.title;
+  if (body !== undefined) updateData.body = body;
+  
+  if (reminderData.severity) updateData.severity = reminderData.severity;
+  else if (type) updateData.severity = type;
+
   if (description !== undefined) updateData.description = description;
 
   const dueAt = parseDate(dueDate || reminderData.dueAt);
