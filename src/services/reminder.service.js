@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { sendReminderEmail } = require('./email.service');
 
 const createReminder = async (reminderData) => {
   const { userId, employeeId, dueDate, notifyDate, type, description, branch, method } = reminderData;
@@ -26,7 +27,7 @@ const createReminder = async (reminderData) => {
     }
   }
 
-  return await prisma.reminder.create({
+  const savedReminder = await prisma.reminder.create({
     data: {
       userId: parseInt(userId),
       targetUserId: targetUserId ? parseInt(targetUserId) : null,
@@ -42,6 +43,29 @@ const createReminder = async (reminderData) => {
       attachmentUrl: reminderData.attachmentUrl || null,
     },
   });
+
+  // Send email if method is Email or Both
+  const emailMethod = (method || 'In-App').toLowerCase();
+  if (emailMethod === 'email' || emailMethod === 'both') {
+    try {
+      let recipientEmail = process.env.SMTP_ADMIN; // Default: admin inbox
+
+      // If a specific employee is assigned, get their user email
+      if (targetUserId) {
+        const user = await prisma.user.findUnique({
+          where: { id: parseInt(targetUserId) },
+          select: { email: true },
+        });
+        if (user?.email) recipientEmail = user.email;
+      }
+
+      await sendReminderEmail(recipientEmail, savedReminder);
+    } catch (emailErr) {
+      console.error('[Reminder] Email send failed (non-blocking):', emailErr.message);
+    }
+  }
+
+  return savedReminder;
 };
 
 const getReminders = async (userId, userRole) => {
@@ -247,10 +271,50 @@ const deleteReminder = async (id) => {
   });
 };
 
+/**
+ * Get reminders that need email sending today (for cron job)
+ * Filters: notifyAt <= today, isSent = false, method includes email
+ */
+const getUnsentEmailReminders = async () => {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+
+  return await prisma.reminder.findMany({
+    where: {
+      isSent: false,
+      notifyAt: { lte: today },
+      OR: [
+        { method: 'Email' },
+        { method: 'Both' },
+      ],
+    },
+    include: {
+      recipient: {
+        select: {
+          id: true,
+          email: true,
+        },
+      },
+    },
+  });
+};
+
+/**
+ * Mark a reminder as sent in DB
+ */
+const markReminderSent = async (id) => {
+  return await prisma.reminder.update({
+    where: { id: parseInt(id) },
+    data: { isSent: true },
+  });
+};
+
 module.exports = {
   createReminder,
   getReminders,
   getActiveNotifications,
   updateReminder,
   deleteReminder,
+  getUnsentEmailReminders,
+  markReminderSent,
 };
