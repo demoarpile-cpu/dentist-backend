@@ -55,6 +55,9 @@ const getAllDocuments = async () => {
       expenseId: null,
       labCaseId: null,
       paymentId: null,
+      employeeId: null,
+      vendorId: null,
+      laboratoryId: null,
     },
     include: { vendor: true, labCase: true, expense: true, payment: true, employee: true, laboratory: true },
     orderBy: { createdAt: 'desc' }

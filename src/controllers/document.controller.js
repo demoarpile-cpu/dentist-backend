@@ -7,7 +7,7 @@ const uploadDocument = async (req, res, next) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const { category, title, description, vendorId, labCaseId, expenseId, paymentId, employeeId, laboratoryId, branch } = req.body;
+    const { skipDb, category, title, description, vendorId, labCaseId, expenseId, paymentId, employeeId, laboratoryId, branch } = req.body;
 
     // Upload to ImageKit (cloud) — req.file.buffer from memoryStorage
     const ikResult = await uploadToImageKit(
@@ -18,6 +18,11 @@ const uploadDocument = async (req, res, next) => {
 
     // Use the permanent ImageKit CDN URL
     const fileUrl = ikResult.url;
+
+    // If skipDb is true, just return the URL and DO NOT create a DB document record.
+    if (skipDb === 'true' || skipDb === true) {
+      return res.status(201).json({ fileUrl });
+    }
 
     const document = await documentService.createDocument({
       fileName: req.file.originalname,
