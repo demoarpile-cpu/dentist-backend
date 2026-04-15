@@ -64,6 +64,7 @@ const downloadBackup = async (req, res, next) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.json(backup);
   } catch (error) {
+    console.error('Download Backup Error:', error);
     next(error);
   }
 };
